@@ -248,7 +248,9 @@ public class RosterRestrictionsPlugin implements Plugin {
             if (packet instanceof Presence) {
                 Presence presencePacket = (Presence)packet;
                 Presence.Type type = presencePacket.getType();
-                
+                if(type == null) {
+                    return; // presence without type
+                }
                 RosterItem.SubType currentItemSubType = (currentItem == null) ? RosterItem.SUB_NONE : currentItem.getSubStatus();
                 PresenceSubscribeHandler.Change change = PresenceSubscribeHandler.getStateChange(currentItemSubType, type, true);
                 if(change == null) {
