@@ -251,7 +251,10 @@ public class RosterRestrictionsPlugin implements Plugin {
                 
                 RosterItem.SubType currentItemSubType = (currentItem == null) ? RosterItem.SUB_NONE : currentItem.getSubStatus();
                 PresenceSubscribeHandler.Change change = PresenceSubscribeHandler.getStateChange(currentItemSubType, type, true);
-                
+                if(change == null) {
+                    return; // no change to be made
+                }
+                    
                 newItemSubStatus = change.getNewSub();
                 newItemAskStatus = change.getNewAsk();
                 
