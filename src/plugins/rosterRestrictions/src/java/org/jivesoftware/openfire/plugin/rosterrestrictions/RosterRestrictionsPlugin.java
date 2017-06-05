@@ -196,42 +196,49 @@ public class RosterRestrictionsPlugin implements Plugin {
         public void interceptPacket(Packet packet, Session session, boolean incoming, boolean processed) throws PacketRejectedException {
             if(!incoming) return; // Don't intercept outgoing messages
             if(processed) return; // Don't intercept after processing
-                
-            JID sender = packet.getFrom();
-            if(sender.getNode() == null) return; // Don't intercept invalid users
-            if(!server.isLocal(sender)) return;  // Don't intercept remote users
-            if(!userManager.isRegisteredUser(sender.getNode())) return; // Don't intercept anonymous users
-                
-            // Fetch user's current Roster
+               
+            JID newItemJID = null;
+            JID sender = null;
+            try { 
+                sender = packet.getFrom();
+                if(sender.getNode() == null) return; // Don't intercept invalid users
+                if(!server.isLocal(sender)) return;  // Don't intercept remote users
+                if(!userManager.isRegisteredUser(sender.getNode())) return; // Don't intercept anonymous users
+          
+	            //////////////////////////////////////
+	            // Get the rosterItem's JID
+                if (packet instanceof Presence) {
+                    Presence presencePacket = (Presence)packet;
+                    if(presencePacket.getTo() == null) return; // Don't intercept invalid presence
+                    newItemJID = presencePacket.getTo();
+                } else if (packet instanceof org.xmpp.packet.Roster) {
+                    org.xmpp.packet.Roster rosterPacket = (org.xmpp.packet.Roster)packet;
+                    
+                    if( rosterPacket.getType() != IQ.Type.set) return; // Only intercept set roster requests
+                    if( rosterPacket.getItems().size() != 1) return; // Only intercept valid roster requests
+                    
+                    org.xmpp.packet.Roster.Item item = rosterPacket.getItems().iterator().next();
+                    if (item.getSubscription() == org.xmpp.packet.Roster.Subscription.remove) return; // Don't intercept remove requests
+                    
+                    newItemJID = item.getJID();
+                } else {
+                    return; // Don't intercept other packets
+                }
+
+            } catch (IllegalArgumentException e) {
+                // Malformed JID
+                return;
+            }
+            if(newItemJID == null) return; // Don't intercept invalid presence or IQ
+            //////////////////////////////////////
+            
             Roster sendersRoster = null;
+            // Fetch user's current Roster
             try {
                 sendersRoster = userManager.getUser(sender.getNode()).getRoster();
             } catch ( UserNotFoundException e) {
                 return; // User without roster ??? Don't intercept...
             }
-            
-            //////////////////////////////////////
-            // Get the rosterItem's JID
-            JID newItemJID = null;
-            if (packet instanceof Presence) {
-                Presence presencePacket = (Presence)packet;
-                if(presencePacket.getTo() == null) return; // Don't intercept invalid presence
-                newItemJID = presencePacket.getTo();
-            } else if (packet instanceof org.xmpp.packet.Roster) {
-                org.xmpp.packet.Roster rosterPacket = (org.xmpp.packet.Roster)packet;
-                
-                if( rosterPacket.getType() != IQ.Type.set) return; // Only intercept set roster requests
-                if( rosterPacket.getItems().size() != 1) return; // Only intercept valid roster requests
-                
-                org.xmpp.packet.Roster.Item item = rosterPacket.getItems().iterator().next();
-                if (item.getSubscription() == org.xmpp.packet.Roster.Subscription.remove) return; // Don't intercept remove requests
-                
-                newItemJID = item.getJID();
-            } else {
-                return; // Don't intercept other packets
-            }
-            if(newItemJID == null) return; // Don't intercept invalid presence or IQ
-            //////////////////////////////////////
             
             // Fetch current Roster item if exists
             RosterItem currentItem = null;
